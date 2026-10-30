@@ -54,13 +54,34 @@ export function normalizeRecord(input: Record<string, unknown>): Record<string, 
   return output;
 }
 
-export function isMandatoryValid(record: Record<string, unknown>): boolean {
+export function extractCanonicalIds(record: Record<string, unknown>) {
   const caseIdRaw =
-    record.case_id ?? record.caseid ?? record.CaseID ?? record.FallNr ?? record.fallnr;
-  const patientIdRaw = record.patient_id ?? record.patientid ?? record.PatientID;
+    record.case_id ??
+    record.caseid ??
+    record.CaseID ??
+    record.FallNr ??
+    record.fallnr ??
+    record.PATFAL ??
+    record.encounter_id ??
+    record.EncounterID ??
+    record.encounterid;
 
-  const caseId = normalizeCaseId(caseIdRaw);
-  const patientId = normalizePatientId(patientIdRaw);
+  const patientIdRaw =
+    record.patient_id ??
+    record.patientid ??
+    record.PatientID ??
+    record.PATFOE ??
+    record.sid ??
+    record.SID;
+
+  return {
+    caseId: normalizeCaseId(caseIdRaw),
+    patientId: normalizePatientId(patientIdRaw),
+  };
+}
+
+export function isMandatoryValid(record: Record<string, unknown>): boolean {
+  const { caseId, patientId } = extractCanonicalIds(record);
 
   return caseId !== null && patientId !== null;
 }

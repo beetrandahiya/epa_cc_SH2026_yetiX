@@ -17,10 +17,12 @@ const DATASETS: DatasetKey[] = [
 async function main() {
   const { ingestDataset } = await import("../lib/etl/ingest");
   const { runTransform } = await import("../lib/etl/transform");
+  const force = process.argv.includes("--force");
 
   for (const dataset of DATASETS) {
-    const result = await ingestDataset(dataset);
-    console.log(`Ingested ${dataset}:`, result);
+    const result = await ingestDataset(dataset, { force });
+    const label = result.skipped ? "Skipped" : "Ingested";
+    console.log(`${label} ${dataset}:`, result);
   }
 
   const transformed = await runTransform();

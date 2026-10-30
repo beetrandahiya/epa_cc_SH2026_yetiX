@@ -5,6 +5,18 @@ import { demoStore } from "@/lib/store";
 import type { AlertEvent, DatasetKey, MappingSuggestion, QualityIssue } from "@/lib/types";
 
 const LAB_KEYS = ["CRP", "Leukozyten", "Kreatinin", "Glukose", "Laktat", "INR"];
+const MAX_AI_NOTE_CALLS = 20;
+
+function simpleNursingExtract(note: string) {
+  const lowered = note.toLowerCase();
+  return {
+    symptoms: lowered.includes("pain") ? ["pain"] : [],
+    interventions: lowered.includes("mobil") ? ["mobilization"] : [],
+    outcomes: lowered.includes("stable") ? ["stable condition"] : [],
+    riskSignals:
+      lowered.includes("fall") || lowered.includes("sturz") ? ["fall-risk"] : [],
+  };
+}
 
 function buildQualityIssue(params: {
   dataset: string;
@@ -56,7 +68,7 @@ export async function runTransform() {
   const rawRecords =
     sql !== null
       ? ((await sql`
-          select dataset, source_file, row_hash, payload
+          select dataset, source_file, row_hash, payload, is_valid, invalid_reason
           from bronze.raw_records
           order by id asc
         `) as {
@@ -64,12 +76,16 @@ export async function runTransform() {
           source_file: string;
           row_hash: string;
           payload: Record<string, unknown>;
+          is_valid: boolean;
+          invalid_reason: string | null;
         }[])
       : demoStore.rawRecords.map((item) => ({
           dataset: item.dataset,
           source_file: item.sourceFile,
           row_hash: item.rowHash,
           payload: item.payload,
+          is_valid: item.isValid,
+          invalid_reason: item.invalidReason ?? null,
         }));
 
   const qualityIssues: QualityIssue[] = [];
@@ -86,8 +102,29 @@ export async function runTransform() {
   }> = [];
 
   const datasetColumns = new Map<string, Set<string>>();
+  const invalidByDataset = new Map<
+    string,
+    { count: number; sourceFile: string; rowHash: string; reason: string }
+  >();
+  let nursingAiCalls = 0;
+  const medicationAdminByPatient = new Map<string, { total: number; missed: number }>();
 
   for (const row of rawRecords) {
+    if (!row.is_valid) {
+      const existing = invalidByDataset.get(row.dataset);
+      if (existing) {
+        existing.count += 1;
+      } else {
+        invalidByDataset.set(row.dataset, {
+          count: 1,
+          sourceFile: row.source_file,
+          rowHash: row.row_hash,
+          reason: row.invalid_reason ?? "Missing mandatory identifiers",
+        });
+      }
+      continue;
+    }
+
     const payload = row.payload;
     const caseId = typeof payload.case_id === "number" ? payload.case_id : null;
     const patientId = typeof payload.patient_id === "string" ? payload.patient_id : null;
@@ -98,7 +135,11 @@ export async function runTransform() {
 
     if (row.dataset.includes("nursing")) {
       const note = String(payload.nursing_note_free_text ?? "");
-      const extracted = await extractNursingSignals(note);
+      const extracted =
+        nursingAiCalls < MAX_AI_NOTE_CALLS
+          ? await extractNursingSignals(note)
+          : simpleNursingExtract(note);
+      nursingAiCalls += 1;
       const ts = String(payload.report_date ?? new Date().toISOString());
 
       timelineRows.push({
@@ -158,7 +199,41 @@ export async function runTransform() {
     }
 
     if (row.dataset.includes("device_motion_fall_data")) {
+      const movementIndex = Number(payload.movement_index_0_100 ?? 0);
+      const bedExitDetected = payload.bed_exit_detected_0_1 === 1 || payload.bed_exit_detected_0_1 === "1";
+
+      if (bedExitDetected && movementIndex <= 5) {
+        qualityIssues.push(
+          buildQualityIssue({
+            dataset: row.dataset,
+            issueType: "device-event-inconsistency",
+            severity: "low",
+            message: "Bed-exit detected with near-zero movement index",
+            sourceFile: row.source_file,
+            rowHash: row.row_hash,
+            caseId,
+            patientId,
+          }),
+        );
+      }
+
       if (payload.fall_event_0_1 === 1 || payload.fall_event_0_1 === "1") {
+        const impact = payload.impact_magnitude_g;
+        if (impact === null || impact === "" || impact === undefined) {
+          qualityIssues.push(
+            buildQualityIssue({
+              dataset: row.dataset,
+              issueType: "missing-fall-impact",
+              severity: "medium",
+              message: "Fall event present without impact magnitude",
+              sourceFile: row.source_file,
+              rowHash: row.row_hash,
+              caseId,
+              patientId,
+            }),
+          );
+        }
+
         alerts.push(
           buildAlert({
             alertType: "fall-event",
@@ -172,6 +247,51 @@ export async function runTransform() {
         );
       }
     }
+
+    if (row.dataset.includes("medication_raw_inpatient")) {
+      const administrationStatus = String(payload.administration_status ?? "").toLowerCase();
+      if (administrationStatus) {
+        const key = String(patientId ?? "unknown");
+        const aggregate = medicationAdminByPatient.get(key) ?? { total: 0, missed: 0 };
+        aggregate.total += 1;
+        if (administrationStatus === "missed" || administrationStatus === "refused") {
+          aggregate.missed += 1;
+        }
+        medicationAdminByPatient.set(key, aggregate);
+      }
+    }
+  }
+
+  for (const [patient, aggregate] of medicationAdminByPatient.entries()) {
+    if (aggregate.total < 8) {
+      continue;
+    }
+    const missedRate = aggregate.missed / aggregate.total;
+    if (missedRate > 0.2) {
+      alerts.push(
+        buildAlert({
+          alertType: "med-adherence-risk",
+          severity: missedRate > 0.35 ? "high" : "medium",
+          title: "Medication adherence risk",
+          detail: `${Math.round(missedRate * 100)}% missed/refused administrations for patient ${patient}`,
+          score: Math.min(0.99, 0.55 + missedRate),
+          patientId: patient,
+        }),
+      );
+    }
+  }
+
+  for (const [dataset, invalid] of invalidByDataset.entries()) {
+    qualityIssues.push(
+      buildQualityIssue({
+        dataset,
+        issueType: "mandatory-ids-missing",
+        severity: "high",
+        message: `${invalid.count} rows dropped before harmonization: ${invalid.reason}`,
+        sourceFile: invalid.sourceFile,
+        rowHash: invalid.rowHash,
+      }),
+    );
   }
 
   for (const [dataset, setOfColumns] of datasetColumns.entries()) {
@@ -259,9 +379,10 @@ export async function runTransform() {
   }
 
   const sourceCount = datasetColumns.size;
+  const transformedRows = rawRecords.filter((row) => row.is_valid).length;
   return {
     status: "ok",
-    transformedRows: rawRecords.length,
+    transformedRows,
     mappings: mappingSuggestions.length,
     qualityIssues: qualityIssues.length,
     alerts: alerts.length,

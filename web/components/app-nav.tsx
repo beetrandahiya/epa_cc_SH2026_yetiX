@@ -2,10 +2,12 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import { Button, Navbar, NavbarBrand, NavbarContent, NavbarItem } from "@heroui/react";
 
 const links = [
   { href: "/", label: "Overview" },
   { href: "/lineage", label: "Data Lineage" },
+  { href: "/raw_files", label: "Raw Files" },
   { href: "/mapping", label: "Mapping Studio" },
   { href: "/quality", label: "Data Quality" },
   { href: "/alerts", label: "Alerts" },
@@ -16,28 +18,38 @@ export function AppNav() {
   const pathname = usePathname();
 
   return (
-    <header className="border-b border-black/10 dark:border-white/10">
-      <nav className="mx-auto flex w-full max-w-7xl items-center justify-between gap-3 px-6 py-4">
-        <div className="text-sm font-semibold">EPA Harmonization Cockpit</div>
-        <div className="flex flex-wrap items-center gap-2 text-sm">
-          {links.map((item) => {
-            const active = pathname === item.href || pathname.startsWith(`${item.href}/`);
-            return (
-              <Link
-                key={item.href}
+    <Navbar
+      maxWidth="xl"
+      isBordered
+      className="border-b border-divider bg-content1/70 backdrop-blur-md"
+    >
+      <NavbarBrand>
+        <div>
+          <div className="text-[11px] uppercase tracking-[0.16em] text-foreground-500">epa.cc • Data Harmonization</div>
+          <div className="text-sm font-semibold">Smart Mapping Control Center</div>
+        </div>
+      </NavbarBrand>
+
+      <NavbarContent justify="end" className="flex-wrap gap-1.5">
+        {links.map((item) => {
+          const active = pathname === item.href || pathname.startsWith(`${item.href}/`);
+          return (
+            <NavbarItem key={item.href}>
+              <Button
+                as={Link}
                 href={item.href}
-                className={`rounded-full px-3 py-1.5 transition ${
-                  active
-                    ? "bg-foreground text-background"
-                    : "bg-black/5 hover:bg-black/10 dark:bg-white/10 dark:hover:bg-white/20"
-                }`}
+                radius="full"
+                size="sm"
+                variant={active ? "solid" : "bordered"}
+                color={active ? "primary" : "default"}
+                className="font-medium"
               >
                 {item.label}
-              </Link>
-            );
-          })}
-        </div>
-      </nav>
-    </header>
+              </Button>
+            </NavbarItem>
+          );
+        })}
+      </NavbarContent>
+    </Navbar>
   );
 }

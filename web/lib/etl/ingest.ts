@@ -5,7 +5,11 @@ import Papa from "papaparse";
 import * as xlsx from "xlsx";
 import { getSqlClient } from "@/lib/db/client";
 import { initDatabase } from "@/lib/db/init";
-import { isMandatoryValid, normalizeCaseId, normalizeRecord } from "@/lib/etl/cleaning";
+import {
+  extractCanonicalIds,
+  isMandatoryValid,
+  normalizeRecord,
+} from "@/lib/etl/cleaning";
 import { demoStore } from "@/lib/store";
 import type { DatasetKey } from "@/lib/types";
 
@@ -37,11 +41,20 @@ function hashRecord(payload: Record<string, unknown>) {
   return crypto.createHash("sha256").update(JSON.stringify(payload)).digest("hex");
 }
 
+function surrogateCaseIdFromPatient(patientId: string) {
+  const digest = crypto.createHash("md5").update(patientId).digest("hex");
+  const value = Number.parseInt(digest.slice(0, 8), 16);
+  return (value % 9000000) + 1000000;
+}
+
 async function parseCsv(filePath: string): Promise<Record<string, unknown>[]> {
   const csv = await fs.readFile(filePath, "utf-8");
+  const firstLine = csv.split(/\r?\n/, 1)[0] ?? "";
+  const delimiter = firstLine.includes(";") ? ";" : ",";
   const parsed = Papa.parse<Record<string, unknown>>(csv, {
     header: true,
     skipEmptyLines: true,
+    delimiter,
   });
   return parsed.data;
 }
@@ -74,36 +87,113 @@ function dedupeEpa1(records: Record<string, unknown>[]) {
   return [...byIid.values()];
 }
 
-export async function ingestDataset(dataset: DatasetKey) {
+export async function ingestDataset(
+  dataset: DatasetKey,
+  options?: { force?: boolean },
+) {
+  const force = options?.force ?? false;
   await initDatabase();
   const filePath = getDatasetPath(dataset);
-  const records = await parseByExtension(filePath);
   const sourceFile = path.basename(filePath);
   const sql = getSqlClient();
 
+  if (!force) {
+    if (sql) {
+      const rows = (await sql`
+        select total_rows, valid_rows, dropped_rows, ingested_at
+        from bronze.ingestion_runs
+        where dataset = ${dataset}
+        order by ingested_at desc
+        limit 1
+      `) as Array<{
+        total_rows: number;
+        valid_rows: number;
+        dropped_rows: number;
+        ingested_at: string;
+      }>;
+
+      if (rows.length > 0) {
+        return {
+          dataset,
+          sourceFile,
+          filePath,
+          ingested: Number(rows[0].valid_rows),
+          dropped: Number(rows[0].dropped_rows),
+          totalRows: Number(rows[0].total_rows),
+          skipped: true,
+          mode: "database" as const,
+          ingestedAt: rows[0].ingested_at,
+        };
+      }
+    } else {
+      const previous = demoStore.ingestionRuns.find((run) => run.dataset === dataset);
+      if (previous) {
+        return {
+          dataset,
+          sourceFile,
+          filePath,
+          ingested: previous.validRows,
+          dropped: previous.droppedRows,
+          totalRows: previous.totalRows,
+          skipped: true,
+          mode: "memory" as const,
+          ingestedAt: previous.ingestedAt,
+        };
+      }
+    }
+  }
+
+  const records = await parseByExtension(filePath);
+
   const candidateRows = dataset === "epaAC-Data-1" ? dedupeEpa1(records) : records;
+
+  if (sql) {
+    await sql`delete from bronze.raw_records where dataset = ${dataset}`;
+    await sql`delete from bronze.ingestion_runs where dataset = ${dataset}`;
+  } else {
+    demoStore.rawRecords = demoStore.rawRecords.filter((row) => row.dataset !== dataset);
+    demoStore.ingestionRuns = demoStore.ingestionRuns.filter((run) => run.dataset !== dataset);
+  }
 
   let ingested = 0;
   let dropped = 0;
 
   for (let index = 0; index < candidateRows.length; index += 1) {
     const row = normalizeRecord(candidateRows[index]);
-    if (!isMandatoryValid(row)) {
-      dropped += 1;
-      continue;
+    const { caseId, patientId } = extractCanonicalIds(row);
+
+    let resolvedCaseId = caseId;
+    if (
+      resolvedCaseId === null &&
+      patientId &&
+      (dataset === "synthetic_device_motion_fall_data" ||
+        dataset === "synthetic_device_raw_1hz_motion_fall")
+    ) {
+      resolvedCaseId = surrogateCaseIdFromPatient(patientId);
     }
 
-    const caseIdRaw = row.case_id ?? row.caseid ?? row.CaseID ?? row.FallNr ?? row.fallnr;
-    row.case_id = normalizeCaseId(caseIdRaw);
-    row.patient_id = String(row.patient_id ?? row.patientid ?? row.PatientID);
+    row.case_id = resolvedCaseId;
+    row.patient_id = patientId;
+
+    const isValid = isMandatoryValid(row);
+
+    if (!isValid) {
+      dropped += 1;
+    } else {
+      ingested += 1;
+    }
 
     const rowHash = hashRecord(row);
     const rowNumber = index + 2;
 
     if (sql) {
       await sql`
-        insert into bronze.raw_records (dataset, source_file, row_number, row_hash, payload)
-        values (${dataset}, ${sourceFile}, ${rowNumber}, ${rowHash}, ${JSON.stringify(row)}::jsonb)
+        insert into bronze.raw_records
+          (dataset, source_file, row_number, row_hash, payload, is_valid, invalid_reason)
+        values
+          (${dataset}, ${sourceFile}, ${rowNumber}, ${rowHash}, ${JSON.stringify(row)}::jsonb, ${isValid}, ${
+            isValid ? null : "Missing case_id or patient_id after normalization"
+          })
       `;
     } else {
       demoStore.rawRecords.push({
@@ -112,14 +202,31 @@ export async function ingestDataset(dataset: DatasetKey) {
         rowNumber,
         rowHash,
         payload: row,
+        isValid,
+        invalidReason: isValid ? null : "Missing case_id or patient_id after normalization",
         ingestedAt: new Date().toISOString(),
       });
     }
+  }
 
-    ingested += 1;
+  if (sql) {
+    await sql`
+      insert into bronze.ingestion_runs
+        (dataset, source_file, total_rows, valid_rows, dropped_rows)
+      values
+        (${dataset}, ${sourceFile}, ${candidateRows.length}, ${ingested}, ${dropped})
+    `;
   }
 
   demoStore.ingestionStatus[dataset] = ingested;
+  demoStore.ingestionRuns.push({
+    dataset,
+    sourceFile,
+    totalRows: candidateRows.length,
+    validRows: ingested,
+    droppedRows: dropped,
+    ingestedAt: new Date().toISOString(),
+  });
 
   return {
     dataset,
@@ -127,6 +234,8 @@ export async function ingestDataset(dataset: DatasetKey) {
     filePath,
     ingested,
     dropped,
+    totalRows: candidateRows.length,
+    skipped: false,
     mode: sql ? "database" : "memory",
   };
 }

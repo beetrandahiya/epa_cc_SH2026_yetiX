@@ -17,8 +17,21 @@ export async function initDatabase() {
       row_number integer not null,
       row_hash text not null,
       payload jsonb not null,
+      is_valid boolean not null default true,
+      invalid_reason text null,
       ingested_at timestamptz not null default now(),
       transformed_at timestamptz null
+    )`,
+    `alter table bronze.raw_records add column if not exists is_valid boolean not null default true`,
+    `alter table bronze.raw_records add column if not exists invalid_reason text null`,
+    `create table if not exists bronze.ingestion_runs (
+      id bigserial primary key,
+      dataset text not null,
+      source_file text not null,
+      total_rows integer not null,
+      valid_rows integer not null,
+      dropped_rows integer not null,
+      ingested_at timestamptz not null default now()
     )`,
     `create table if not exists silver.patient (
       patient_id text primary key,

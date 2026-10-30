@@ -1,4 +1,4 @@
-import type { AlertEvent, MappingSuggestion, QualityIssue } from "@/lib/types";
+import type { AlertEvent, IngestionRun, MappingSuggestion, QualityIssue } from "@/lib/types";
 
 type RawRecord = {
   dataset: string;
@@ -6,6 +6,8 @@ type RawRecord = {
   rowNumber: number;
   rowHash: string;
   payload: Record<string, unknown>;
+  isValid: boolean;
+  invalidReason?: string | null;
   ingestedAt: string;
   transformedAt?: string;
 };
@@ -25,6 +27,7 @@ export const demoStore: {
   alerts: AlertEvent[];
   caseTimeline: Record<string, CaseTimelineEvent[]>;
   ingestionStatus: Record<string, number>;
+  ingestionRuns: IngestionRun[];
 } = {
   rawRecords: [],
   mappingSuggestions: [],
@@ -32,4 +35,5 @@ export const demoStore: {
   alerts: [],
   caseTimeline: {},
   ingestionStatus: {},
+  ingestionRuns: [],
 };

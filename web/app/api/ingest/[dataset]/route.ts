@@ -3,12 +3,14 @@ import { ingestDataset } from "@/lib/etl/ingest";
 import type { DatasetKey } from "@/lib/types";
 
 export async function POST(
-  _request: Request,
+  request: Request,
   context: { params: Promise<{ dataset: string }> },
 ) {
   try {
     const { dataset } = await context.params;
-    const result = await ingestDataset(dataset as DatasetKey);
+    const { searchParams } = new URL(request.url);
+    const force = searchParams.get("force") === "1";
+    const result = await ingestDataset(dataset as DatasetKey, { force });
     return NextResponse.json(result);
   } catch (error) {
     return NextResponse.json(

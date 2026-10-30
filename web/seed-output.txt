@@ -1,0 +1,101 @@
+
+> web@0.1.0 seed
+> tsx scripts/seed.ts
+
+[dotenv@17.3.1] injecting env (4) from .env.local -- tip: ÔÜí´©Å secrets for agents: https://dotenvx.com/as2
+Skipped epaAC-Data-1: {
+  dataset: 'epaAC-Data-1',
+  sourceFile: 'epaAC-Data-1.csv',
+  filePath: 'C:\\Users\\Administrator\\Documents\\GitHub\\epa_cc_SH2026_yetiX\\Endtestdaten_ohne_Fehler_ einheitliche ID\\epaAC-Data-1.csv',
+  ingested: 0,
+  dropped: 0,
+  totalRows: 0,
+  skipped: true,
+  mode: 'database',
+  ingestedAt: 2026-03-18T22:45:06.526Z
+}
+Skipped epaAC-Data-2: {
+  dataset: 'epaAC-Data-2',
+  sourceFile: 'epaAC-Data-2.csv',
+  filePath: 'C:\\Users\\Administrator\\Documents\\GitHub\\epa_cc_SH2026_yetiX\\Endtestdaten_ohne_Fehler_ einheitliche ID\\epaAC-Data-2.csv',
+  ingested: 0,
+  dropped: 607,
+  totalRows: 607,
+  skipped: true,
+  mode: 'database',
+  ingestedAt: 2026-03-18T22:46:08.521Z
+}
+Skipped epaAC-Data-3: {
+  dataset: 'epaAC-Data-3',
+  sourceFile: 'epaAC-Data-3.csv',
+  filePath: 'C:\\Users\\Administrator\\Documents\\GitHub\\epa_cc_SH2026_yetiX\\Endtestdaten_ohne_Fehler_ einheitliche ID\\epaAC-Data-3.csv',
+  ingested: 0,
+  dropped: 40,
+  totalRows: 40,
+  skipped: true,
+  mode: 'database',
+  ingestedAt: 2026-03-18T22:46:15.214Z
+}
+Skipped synth_labs_1000_cases: {
+  dataset: 'synth_labs_1000_cases',
+  sourceFile: 'synth_labs_1000_cases.csv',
+  filePath: 'C:\\Users\\Administrator\\Documents\\GitHub\\epa_cc_SH2026_yetiX\\Endtestdaten_ohne_Fehler_ einheitliche ID\\synth_labs_1000_cases.csv',
+  ingested: 1005,
+  dropped: 0,
+  totalRows: 1005,
+  skipped: true,
+  mode: 'database',
+  ingestedAt: 2026-03-18T22:47:55.071Z
+}
+Skipped synthetic_nursing_daily_reports_en: {
+  dataset: 'synthetic_nursing_daily_reports_en',
+  sourceFile: 'synthetic_nursing_daily_reports_en.csv',
+  filePath: 'C:\\Users\\Administrator\\Documents\\GitHub\\epa_cc_SH2026_yetiX\\Endtestdaten_ohne_Fehler_ einheitliche ID\\synthetic_nursing_daily_reports_en.csv',
+  ingested: 181,
+  dropped: 0,
+  totalRows: 181,
+  skipped: true,
+  mode: 'database',
+  ingestedAt: 2026-03-18T22:48:15.162Z
+}
+Skipped synthetic_device_motion_fall_data: {
+  dataset: 'synthetic_device_motion_fall_data',
+  sourceFile: 'synthetic_device_motion_fall_data.csv',
+  filePath: 'C:\\Users\\Administrator\\Documents\\GitHub\\epa_cc_SH2026_yetiX\\Endtestdaten_ohne_Fehler_ einheitliche ID\\synthetic_device_motion_fall_data.csv',
+  ingested: 0,
+  dropped: 24000,
+  totalRows: 24000,
+  skipped: true,
+  mode: 'database',
+  ingestedAt: 2026-03-18T23:27:38.760Z
+}
+Skipped synthetic_medication_raw_inpatient: {
+  dataset: 'synthetic_medication_raw_inpatient',
+  sourceFile: 'synthetic_medication_raw_inpatient.csv',
+  filePath: 'C:\\Users\\Administrator\\Documents\\GitHub\\epa_cc_SH2026_yetiX\\Endtestdaten_ohne_Fehler_ einheitliche ID\\synthetic_medication_raw_inpatient.csv',
+  ingested: 14553,
+  dropped: 0,
+  totalRows: 14553,
+  skipped: true,
+  mode: 'database',
+  ingestedAt: 2026-03-18T23:29:23.759Z
+}
+Skipped synthetic_cases_icd10_ops: {
+  dataset: 'synthetic_cases_icd10_ops',
+  sourceFile: 'synthetic_cases_icd10_ops.csv',
+  filePath: 'C:\\Users\\Administrator\\Documents\\GitHub\\epa_cc_SH2026_yetiX\\Endtestdaten_ohne_Fehler_ einheitliche ID\\synthetic_cases_icd10_ops.csv',
+  ingested: 50,
+  dropped: 0,
+  totalRows: 50,
+  skipped: true,
+  mode: 'database',
+  ingestedAt: 2026-03-18T23:29:31.208Z
+}
+Transform result: {
+  status: 'ok',
+  transformedRows: 18208,
+  mappings: 74,
+  qualityIssues: 3,
+  alerts: 1,
+  sourceCount: 4
+}

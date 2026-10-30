@@ -55,7 +55,7 @@ export default function CaseDigitalTwinPage() {
           <div className="text-sm font-semibold">Timeline Trend</div>
           <button
             onClick={() => window.print()}
-            className="rounded-full border border-black/20 px-3 py-1 text-xs dark:border-white/20"
+            className="ghost-button rounded-full px-3 py-1 text-xs"
           >
             Export PNG Snapshot (use browser print/save)
           </button>

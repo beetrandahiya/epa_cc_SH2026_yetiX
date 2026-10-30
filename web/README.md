@@ -42,6 +42,35 @@ npm run dev
 
 Open http://localhost:3000
 
+## Local editing while deployed on Vercel
+
+Use this workflow when Vercel is live but you still want to iterate locally:
+
+```bash
+npm run local:setup
+npm run dev:local
+```
+
+- Edit code locally and test at `http://localhost:3000`
+- Commit and push when ready
+- Vercel auto-redeploys from GitHub
+
+If you changed only UI/logic and want fast data refresh:
+
+```bash
+npm run local:refresh
+```
+
+If source files changed and you need full re-ingestion:
+
+```bash
+npm run seed:force
+```
+
+Notes:
+- `npm run seed` is now cache-aware and skips datasets already ingested.
+- `npm run local:refresh` runs transform only (fast) and avoids re-reading all CSVs.
+
 ## Vercel deployment
 
 1. Push `/web` as your Vercel project root.
@@ -60,6 +89,8 @@ Open http://localhost:3000
 - `POST /api/mapping/decision`
 - `GET /api/quality/summary`
 - `GET /api/quality/issues`
+- `GET /api/raw-files/summary`
+- `GET /api/raw-files/[dataset]`
 - `GET /api/alerts`
 - `GET /api/cases/[caseId]/timeline`
 - `POST /api/ai/explain-alert/[alertId]`
@@ -72,6 +103,16 @@ Open http://localhost:3000
 - Null token normalization: `NULL`, `Missing`, `unknow`, `NaN`, `N/A`, blank => `null`
 - `epaAC-Data-1` duplicate logic by `IID`: keep last occurrence
 - Source lineage kept (`source_file`, `row_number`, `row_hash`, timestamps)
+
+## Dashboard routes
+
+- `/` Overview
+- `/lineage` Data origin, flow, retention
+- `/raw_files` Per-source table + charts
+- `/mapping` AI mapping + manual correction
+- `/quality` Data quality and completeness
+- `/alerts` Alert center and explanations
+- `/cases/[caseId]` Case digital twin
 
 ## Test & lint
 

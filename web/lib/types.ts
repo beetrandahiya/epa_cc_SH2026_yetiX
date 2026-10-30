@@ -44,3 +44,30 @@ export type AlertEvent = {
   score: number;
   createdAt: string;
 };
+
+export type IngestionRun = {
+  dataset: string;
+  sourceFile: string;
+  totalRows: number;
+  validRows: number;
+  droppedRows: number;
+  ingestedAt: string;
+};
+
+export type LineageSummary = {
+  totals: {
+    totalRows: number;
+    validRows: number;
+    droppedRows: number;
+    transformedRows: number;
+    mappingCount: number;
+    qualityIssueCount: number;
+    alertCount: number;
+  };
+  datasets: Array<{
+    dataset: string;
+    totalRows: number;
+    validRows: number;
+    droppedRows: number;
+  }>;
+};

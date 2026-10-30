@@ -1,8 +1,13 @@
 @import "tailwindcss";
 
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
+  --background: #0b1220;
+  --foreground: #e6edf7;
+  --card: #111a2c;
+  --border: #22324a;
+  --primary: #3b82f6;
+  --primary-2: #2563eb;
+  --accent: #38bdf8;
 }
 
 @theme inline {
@@ -14,13 +19,77 @@
 
 @media (prefers-color-scheme: dark) {
   :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
+    --background: #0b1220;
+    --foreground: #e6edf7;
+    --card: #111a2c;
+    --border: #22324a;
+    --primary: #3b82f6;
+    --primary-2: #2563eb;
+    --accent: #38bdf8;
   }
 }
 
 body {
   background: var(--background);
   color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  font-family: var(--font-geist-sans), Arial, Helvetica, sans-serif;
+  background-image: none;
+}
+
+a {
+  cursor: pointer;
+}
+
+button,
+a.glow-button,
+a.ghost-button {
+  cursor: pointer;
+}
+
+button {
+  border: 1px solid var(--border);
+  background: var(--card);
+  color: var(--foreground);
+  transition: transform 120ms ease, border-color 180ms ease, background 180ms ease;
+  box-shadow: none;
+}
+
+button:hover {
+  transform: translateY(-0.5px);
+  border-color: #355074;
+  background: #16233a;
+}
+
+.surface {
+  border: 1px solid var(--border);
+  background: var(--card);
+  backdrop-filter: none;
+  box-shadow: 0 2px 10px rgba(15, 23, 42, 0.06);
+}
+
+.glow-button {
+  border: 1px solid var(--primary);
+  background: var(--primary);
+  color: #ffffff;
+  transition: transform 120ms ease, background 180ms ease, border-color 180ms ease;
+  box-shadow: none;
+}
+
+.glow-button:hover {
+  transform: translateY(-0.5px);
+  border-color: var(--primary-2);
+  background: var(--primary-2);
+}
+
+.ghost-button {
+  border: 1px solid var(--border);
+  background: var(--card);
+  color: var(--foreground);
+  transition: transform 120ms ease, border-color 180ms ease, background 180ms ease;
+}
+
+.ghost-button:hover {
+  transform: translateY(-0.5px);
+  border-color: #355074;
+  background: #16233a;
 }
